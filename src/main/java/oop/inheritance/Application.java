@@ -2,19 +2,14 @@ package oop.inheritance;
 
 import java.time.LocalDateTime;
 
-import oop.inheritance.cardswipper.CardSwipper;
-import oop.inheritance.core.communication.ethernet.factory.EthernetFactory;
-import oop.inheritance.core.communication.transaction.GenericTransaction;
-import oop.inheritance.core.communication.transaction.factory.GenericTransactionFactory;
-import oop.inheritance.core.communication.transaction.factory.GenericTransactionFactoryImpl;
+import oop.inheritance.core.card.Card;
 import oop.inheritance.core.display.Display;
 import oop.inheritance.core.display.factory.DisplayFactory;
 import oop.inheritance.core.keyboard.Keyboard;
 import oop.inheritance.core.keyboard.factory.KeyboardFactory;
+import oop.inheritance.core.transaction.Transaction;
 import oop.inheritance.data.CommunicationType;
 import oop.inheritance.data.SupportedTerminal;
-import oop.library.ingenico.model.Card;
-import oop.library.ingenico.model.Transaction;
 import oop.library.ingenico.model.TransactionResponse;
 import oop.library.ingenico.services.*;
 
@@ -45,10 +40,23 @@ public class Application {
         return keyboard.getKey();
     }
 
+
     public void doSale() {
-        CardSwipper cardSwipper = CardSwipper.getInstance();
-        ChipReader chipReader = ChipReader.getInstance();
-        GenericCard card;
+        CardProvider cardProvider = CardProviderFactory.getInstance();
+
+        display.clear();
+        display.print(5, 20, "Capture el monto:");
+
+        String amount = keyboard.getKey();
+
+        Card card;
+
+        Transaction transaction = TransactionFactory.getInstance(supportedTerminal);
+        transaction.setLocalDateTime(LocalDateTime.now());
+        transaction.setCard(card);
+        transaction.setAmountInCents(Integer.parseInt(amount.replace(".", "")) * 100);
+
+        //cardProvider.readCard( card -> {});
 
         do {
             card = cardSwipper.readCard();
@@ -58,13 +66,11 @@ public class Application {
         } while (card == null);
 
         display.clear();
-        display.showMessage(5, 20, "Capture monto:");
-
-        String amount = ingenicoKeyboard.readLine(); //Amount with decimal point as string
+        display.print(5, 20, "Capture monto:");
 
         Transaction transaction = new Transaction();
 
-        GenericTransaction genericTransaction = GenericTransactionFactoryImpl.getInstance(supportedTerminal);
+        //GenericTransaction genericTransaction = GenericTransactionFactoryImpl.getInstance(supportedTerminal);
 
         transaction.setLocalDateTime(LocalDateTime.now());
         transaction.setCard(card);
@@ -94,7 +100,7 @@ public class Application {
 
     }
 
-    private GenericTransactionResponse sendSale(GenericTransaction<T> transaction) {
+    private TransactionResponse sendSale(Transaction transaction) {
         Ethernet ethernet = EthernetFactory.getInstance(supportedTerminal);
         IngenicoModem modem = new IngenicoModem();
         IngenicoGPS gps = new IngenicoGPS();

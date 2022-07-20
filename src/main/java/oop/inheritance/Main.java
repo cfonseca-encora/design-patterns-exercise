@@ -5,6 +5,7 @@ import oop.inheritance.data.SupportedTerminal;
 public class Main {
 
     public static void main(String[] args) {
+        //Abstract Factory should instantiate first, receive supported terminal and then send itself through application
         Application application = new Application(SupportedTerminal.INGENICO);
 
         while (true) {
