@@ -4,12 +4,14 @@ import java.time.LocalDateTime;
 
 import oop.inheritance.core.card.Card;
 
-public class Transaction {
+public class GenericTransaction {
     private int amountInCents;
     private LocalDateTime localDateTime;
     private Card card;
 
-    public Transaction(int amountInCents, LocalDateTime localDateTime, Card card) {
+    public GenericTransaction() {}
+
+    public GenericTransaction(int amountInCents, LocalDateTime localDateTime, Card card) {
         this.amountInCents = amountInCents;
         this.localDateTime = localDateTime;
         this.card = card;

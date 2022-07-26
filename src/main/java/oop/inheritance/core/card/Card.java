@@ -1,6 +1,7 @@
 package oop.inheritance.core.card;
 
-import oop.library.ingenico.model.EntryMode;
+import oop.inheritance.core.card.EntryMode;
+import oop.inheritance.core.card.util.CardUtils;
 
 public class Card {
     private final String account;

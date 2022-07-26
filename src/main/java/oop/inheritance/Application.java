@@ -2,30 +2,34 @@ package oop.inheritance;
 
 import java.time.LocalDateTime;
 
+import oop.inheritance.core.card.provider.Provider;
+import oop.inheritance.core.abstractfactory.ITerminalFactory;
 import oop.inheritance.core.card.Card;
 import oop.inheritance.core.display.Display;
-import oop.inheritance.core.display.factory.DisplayFactory;
+import oop.inheritance.core.communicationdevices.CommunicationDevice;
 import oop.inheritance.core.keyboard.Keyboard;
-import oop.inheritance.core.keyboard.factory.KeyboardFactory;
-import oop.inheritance.core.transaction.Transaction;
-import oop.inheritance.data.CommunicationType;
-import oop.inheritance.data.SupportedTerminal;
-import oop.library.ingenico.model.TransactionResponse;
-import oop.library.ingenico.services.*;
+import oop.inheritance.core.printer.Printer;
+import oop.inheritance.core.transaction.GenericTransaction;
+import oop.inheritance.core.transaction.GenericTransactionResponse;
 
 public class Application {
-
-    private final CommunicationType communicationType = CommunicationType.ETHERNET;
-    private final SupportedTerminal supportedTerminal;
 
     private final Keyboard keyboard;
 
     private final Display display;
 
-    public Application(SupportedTerminal supportedTerminal) {
-        this.supportedTerminal = supportedTerminal;
-        keyboard = KeyboardFactory.getInstance(supportedTerminal);
-        display = DisplayFactory.getInstance(supportedTerminal);
+    private final CommunicationDevice device;
+
+    private final Printer printer;
+
+    private final Provider provider;
+
+    public Application(ITerminalFactory terminalFactory) {
+        keyboard = terminalFactory.getKeyboard();
+        display = terminalFactory.getDisplay();
+        device = terminalFactory.getCommunicationDevice();
+        printer = terminalFactory.getPrinter();
+        this.provider = terminalFactory.getCardProvider();
     }
 
     public void showMenu() {
@@ -42,90 +46,44 @@ public class Application {
 
 
     public void doSale() {
-        CardProvider cardProvider = CardProviderFactory.getInstance();
-
         display.clear();
         display.print(5, 20, "Capture el monto:");
 
         String amount = keyboard.getKey();
 
-        Card card;
+        provider.readCard( (card) -> {
+            GenericTransaction genericTransaction = new GenericTransaction();
+            genericTransaction.setLocalDateTime(LocalDateTime.now());
+            genericTransaction.setCard(card);
+            genericTransaction.setAmountInCents(Integer.parseInt(amount.replace(".", "")) * 100);
+            GenericTransactionResponse response = sendSale(genericTransaction);
 
-        Transaction transaction = TransactionFactory.getInstance(supportedTerminal);
-        transaction.setLocalDateTime(LocalDateTime.now());
-        transaction.setCard(card);
-        transaction.setAmountInCents(Integer.parseInt(amount.replace(".", "")) * 100);
-
-        //cardProvider.readCard( card -> {});
-
-        do {
-            card = cardSwipper.readCard();
-            if (card == null) {
-                card = chipReader.readCard();
+            if (response.isApproved()) {
+                display.print(5, 25, "APROBADA");
+                printReceipt(genericTransaction);
+            } else {
+                display.print(5, 25, "DENEGADA");
             }
-        } while (card == null);
-
-        display.clear();
-        display.print(5, 20, "Capture monto:");
-
-        Transaction transaction = new Transaction();
-
-        //GenericTransaction genericTransaction = GenericTransactionFactoryImpl.getInstance(supportedTerminal);
-
-        transaction.setLocalDateTime(LocalDateTime.now());
-        transaction.setCard(card);
-        transaction.setAmountInCents(Integer.parseInt(amount.replace(".", "")));
-
-        TransactionResponse response = sendSale(transaction);
-
-        if (response.isApproved()) {
-            display.print(5, 25, "APROBADA");
-            printReceipt(transaction, response.getHostReference());
-        } else {
-            display.print(5, 25, "DENEGADA");
-        }
+        });
     }
 
-    private void printReceipt(Transaction transaction, String hostReference) {
-        IngenicoPrinter ingenicoPrinter = new IngenicoPrinter();
-        Card card = transaction.getCard();
+    private void printReceipt(GenericTransaction genericTransaction) {
+        Card card = genericTransaction.getCard();
 
-        ingenicoPrinter.print(5, "APROBADA");
-        ingenicoPrinter.lineFeed();
-        ingenicoPrinter.print(5, card.getAccount());
-        ingenicoPrinter.lineFeed();
-        ingenicoPrinter.print(5, "" + transaction.getAmountInCents());
-        ingenicoPrinter.lineFeed();
-        ingenicoPrinter.print(5, "________________");
-
+        printer.print(5, "APROBADA");
+        printer.lineFeed();
+        printer.print(5, card.getAccount());
+        printer.lineFeed();
+        printer.print(5, "" + genericTransaction.getAmountInCents());
+        printer.lineFeed();
+        printer.print(5, "________________");
     }
 
-    private TransactionResponse sendSale(Transaction transaction) {
-        Ethernet ethernet = EthernetFactory.getInstance(supportedTerminal);
-        IngenicoModem modem = new IngenicoModem();
-        IngenicoGPS gps = new IngenicoGPS();
-        TransactionResponse transactionResponse = null;
-
-        switch (communicationType) {
-            case ETHERNET:
-                ethernet.open();
-                ethernet.send(transaction);
-                transactionResponse = ethernet.receive();
-                ethernet.close();
-                break;
-            case GPS:
-                gps.open();
-                gps.send(transaction);
-                transactionResponse = gps.receive();
-                gps.close();
-                break;
-            case MODEM:
-                modem.open();
-                modem.send(transaction);
-                transactionResponse = modem.receive();
-                modem.close();
-                break;
-        }
+    private GenericTransactionResponse sendSale(GenericTransaction genericTransaction) {
+        device.open();
+        device.send(genericTransaction);
+        GenericTransactionResponse transactionResponse = device.receive();
+        device.close();
 
         return transactionResponse;
     }
